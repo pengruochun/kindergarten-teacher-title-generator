@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI标题生成助手</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- 整体布局：左侧会话栏 + 右侧聊天区 -->
+    <div class="app-container">
+        <!-- 左侧会话侧边栏 -->
+        <div class="sidebar-wrapper">
+            <div class="sidebar">
+                <button id="newChatBtn" class="new-chat-btn">➕ 新建对话</button>
+                <div class="session-list" id="sessionList"></div>
+            </div>
+            <button id="toggleSidebarBtn" class="sidebar-toggle-btn">折叠</button>
+        </div>
+
+        <!-- 右侧原有聊天区域 -->
+        <div class="chat-container">
+            <div class="chat-content">
+                <div class="header">
+                    <h1>幼师/教师工具专属标题小能手</h1>
+                    <p>你想生成什么工具的标题</p>
+                </div>
+
+                <div class="identity-box">
+                    <button id="identityBtn" class="identity-btn">身份：幼师 ▼</button>
+                    <div class="identity-dropdown" id="identityDropdown">
+                        <button type="button" data-identity="幼师">幼师</button>
+                        <button type="button" data-identity="教师">教师</button>
+                    </div>
+                </div>
+                <div class="tool-buttons" id="toolButtons"></div>
+                <p class="tool-note">如果没有你想要的工具，可以选择“其他”后在下方输入框输入哦~</p>
+
+                <div class="chat-box" id="chatBox"></div>
+
+                <div class="tag-buttons">
+                    <button class="tag-btn" onclick="sendStyleMessage('多加点emoji')">多加点emoji</button>
+                    <button class="tag-btn" onclick="sendStyleMessage('更有网感一点')">更有网感一点</button>
+                    <button class="tag-btn" onclick="sendStyleMessage('更短更抓眼')">更短更抓眼</button>
+                    <button class="tag-btn" onclick="sendStyleMessage('更戳痛点')">更戳痛点</button>
+                    <button class="tag-btn" onclick="sendStyleMessage('更夸张吸睛')">更夸张吸睛</button>
+                    <button class="tag-btn" onclick="sendStyleMessage('加减负感')">加减负感</button>
+                </div>
+
+                <div class="input-area">
+                    <input type="text" id="userInput" placeholder="输入你想要的内容💬......">
+                    <button id="sendBtn">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+let currentSessionId = null;
+let currentIdentity = "幼师";
+let sessions = JSON.parse(localStorage.getItem('chatSessions')) || [];
+
+const toolLists = {
+    幼师: ["PPT课件", "观察记录", "成长画册", "寄语卡片", "主题月课程", "环创设计", "教案生成", "课程故事", "其他"],
+    教师: ["PPT课件", "教案设计", "大单元设计", "智课设计", "知识点视频", "逐字稿", "导学案", "讲题智课", "其他"]
+};
+
+// 页面加载完成后初始化
+window.onload = function () {
+    initSession();
+    renderSessionList();
+    renderToolButtons();
+    bindEvents();
+};
+
+function renderToolButtons() {
+    const toolButtons = document.getElementById('toolButtons');
+    toolButtons.innerHTML = '';
+
+    toolLists[currentIdentity].forEach(function(toolName) {
+        const btn = document.createElement('button');
+        btn.className = 'tool-btn';
+        btn.type = 'button';
+        btn.textContent = toolName;
+
+        btn.onclick = function() {
+            const input = document.getElementById('userInput');
+            if (toolName === '其他') {
+                // 保持你原有逻辑：其他工具时输入提示文本
+                input.value = `我想生成${currentIdentity}其他AI工具的小红书爆款标题，工具为：`;
+                input.focus();
+                return;
+            }
+
+            // 保持你原有逻辑：非其他工具直接填充并发送
+            input.value = `我想生成${currentIdentity}${toolName}的小红书爆款标题`;
+            sendMessage();
+        };
+
+        toolButtons.appendChild(btn);
+    });
+}
+
+function updateIdentityLabel() {
+    document.getElementById('identityBtn').textContent = `身份：${currentIdentity} ▼`;
+}
+
+// 按「身份+工具名」生成会话标题
+function extractToolName(text) {
+    // 场景1：匹配非「其他」工具的标准格式（如：我想生成幼师PPT课件的小红书爆款标题）
+    const matchRule = `我想生成${currentIdentity}([^的]+)的小红书爆款标题`;
+    const normalToolMatch = text.match(matchRule);
+    if (normalToolMatch && normalToolMatch[1]) {
+        const toolName = normalToolMatch[1].trim();
+        // 排除「其他AI工具」的情况（交给场景2处理）
+        if (toolName !== '其他AI工具') {
+            return `${currentIdentity}${toolName}`; // 标题：身份+工具名（如：幼师PPT课件）
+        }
+    }
+
+    // 场景2：匹配「其他」工具的格式（如：我想生成幼师其他AI工具的小红书爆款标题，工具为：成长手册）
+    const otherToolMatch = text.match(/工具为：([^，。！；]+)/);
+    if (otherToolMatch && otherToolMatch[1]) {
+        const customToolName = otherToolMatch[1].trim();
+        return `${currentIdentity}${customToolName}`; // 标题：身份+用户自定义工具名（如：幼师成长手册）
+    }
+
+    // 场景3：兜底（用户手动输入非标准格式/风格按钮）
+    // 优先保留「身份+核心内容」，避免标题混乱
+    const shortText = text.length > 10 ? text.slice(0, 10) + '...' : text;
+    return `${currentIdentity}${shortText}`;
+}
+
+// 初始化会话：如果没有会话，则创建一个新会话
+function initSession() {
+    if (sessions.length === 0) {
+        createNewSession();
+    } else {
+        currentSessionId = sessions[0].id;
+        loadSessionMessages(currentSessionId);
+    }
+}
+
+// 创建新会话
+function createNewSession() {
+    const sessionId = Date.now().toString();
+    const newSession = {
+        id: sessionId,
+        title: "新对话",
+        messages: []
+    };
+
+    sessions.unshift(newSession);
+    saveSessions();
+
+    currentSessionId = sessionId;
+    document.getElementById('chatBox').innerHTML = '';
+    renderSessionList();
+}
+
+// 将会话数据保存到本地存储
+function saveSessions() {
+    localStorage.setItem('chatSessions', JSON.stringify(sessions));
+}
+
+// 渲染左侧会话列表
+function renderSessionList() {
+    const sessionListEl = document.getElementById('sessionList');
+    sessionListEl.innerHTML = '';
+
+    sessions.forEach(function(session) {
+        const item = document.createElement('div');
+        item.className = 'session-item';
+
+        if (session.id === currentSessionId) {
+            item.className += ' active';
+        }
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'session-title';
+        titleSpan.textContent = session.title;
+        item.appendChild(titleSpan);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'session-delete-btn';
+        deleteBtn.type = 'button';
+        deleteBtn.title = '删除会话';
+        deleteBtn.innerHTML = '🗑';
+        deleteBtn.onclick = function(e) {
+            e.stopPropagation();
+            deleteSession(session.id);
+        };
+        item.appendChild(deleteBtn);
+
+        item.onclick = function() {
+            switchSession(session.id);
+        };
+
+        sessionListEl.appendChild(item);
+    });
+}
+
+function deleteSession(sessionId) {
+    const index = sessions.findIndex(function(s) {
+        return s.id === sessionId;
+    });
+    if (index === -1) return;
+
+    sessions.splice(index, 1);
+
+    if (currentSessionId === sessionId) {
+        if (sessions.length > 0) {
+            currentSessionId = sessions[0].id;
+            loadSessionMessages(currentSessionId);
+        } else {
+            currentSessionId = null;
+            document.getElementById('chatBox').innerHTML = '';
+        }
+    }
+
+    saveSessions();
+    renderSessionList();
+}
+
+// 切换会话
+function switchSession(sessionId) {
+    currentSessionId = sessionId;
+    loadSessionMessages(sessionId);
+    renderSessionList();
+}
+
+// 加载指定会话的聊天记录
+function loadSessionMessages(sessionId) {
+    const session = sessions.find(function(s) {
+        return s.id === sessionId;
+    });
+
+    const chatBox = document.getElementById('chatBox');
+    chatBox.innerHTML = '';
+
+    session.messages.forEach(function(msg) {
+        addMessage(msg.role, msg.content, false);
+    });
+}
+
+// 添加消息到聊天框
+function addMessage(role, text, isNew) {
+    if (isNew === undefined) isNew = true;
+
+    const chatBox = document.getElementById('chatBox');
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.innerText = text;
+
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    if (isNew) {
+        const session = sessions.find(function(s) {
+            return s.id === currentSessionId;
+        });
+
+        session.messages.push({
+            role: role,
+            content: text
+        });
+
+        if (role === 'user' && session.messages.length === 1) {
+            // 提取工具名称作为会话标题
+            session.title = extractToolName(text);
+        }
+
+        saveSessions();
+        renderSessionList();
+    }
+
+    return div;
+}
+
+// 点击风格按钮直接发送按钮文字
+function sendStyleMessage(styleText) {
+    const input = document.getElementById('userInput');
+    input.value = styleText;
+    sendMessage();
+}
+// 发送消息给后端
+async function sendMessage() {
+    const input = document.getElementById('userInput');
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    const content = text;
+    input.value = '';
+
+    addMessage('user', content);
+
+    const loadingMsg = addMessage('bot', '💬正在思考中...');
+    loadingMsg.classList.add('loading');
+
+    try {
+        const session = sessions.find(function(s) {
+            return s.id === currentSessionId;
+        });
+
+        const response = await fetch('/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: content,
+                identity: currentIdentity,
+                history: session.messages
+            })
+        });
+
+        const data = await response.json();
+
+        loadingMsg.classList.remove('loading');
+        loadingMsg.innerText = data.reply;
+        document.getElementById('chatBox').scrollTop = chatBox.scrollHeight;
+
+        session.messages.forEach(function(msg) {
+            if (msg.content.includes('正在思考中')) {
+                msg.content = data.reply;
+            }
+        });
+
+        saveSessions();
+    } catch (error) {
+        loadingMsg.classList.remove('loading');
+        loadingMsg.innerText = '发送失败，请重试';
+    }
+}
+
+// 绑定所有按钮事件
+function bindEvents() {
+    document.getElementById('sendBtn').onclick = sendMessage;
+
+    document.getElementById('userInput').onkeydown = function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    };
+
+    document.getElementById('newChatBtn').onclick = createNewSession;
+
+    document.getElementById('identityBtn').onclick = function() {
+        document.getElementById('identityDropdown').classList.toggle('visible');
+    };
+
+    document.querySelectorAll('.identity-dropdown button').forEach(function(btn) {
+        btn.onclick = function() {
+            currentIdentity = btn.dataset.identity;
+            updateIdentityLabel();
+            renderToolButtons();
+            document.getElementById('identityDropdown').classList.remove('visible');
+        };
+    });
+
+    document.getElementById('toggleSidebarBtn').onclick = function() {
+        const sidebar = document.querySelector('.sidebar');
+        sidebar.classList.toggle('collapsed');
+        this.innerText = sidebar.classList.contains('collapsed') ? '展开' : '折叠';
+    };
+
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('identityDropdown');
+        const btn = document.getElementById('identityBtn');
+        if (!btn.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.classList.remove('visible');
+        }
+    });
+}
+    </script>
+    
+</body>
+</html>

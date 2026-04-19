@@ -1,0 +1,459 @@
+/* ======================================
+全局初始化：统一所有标签的默认样式
+====================================== */
+* {
+    margin: 0;      /* 清除所有标签默认外边距 */
+    padding: 0;     /* 清除所有标签默认内边距 */
+    box-sizing: border-box; /* 宽高包含边框和内边距，不会撑大盒子 */
+}
+
+/* 页面根容器：禁止整个页面滚动 */
+html, body {
+    height: 100%;   /* 让页面占满整个屏幕高度 */
+    overflow: hidden; /* 关键：禁止整个页面上下/左右滚动 */
+    overflow-x: hidden; /* 明确禁止横向滚动 */
+    max-width: 100vw;  /* 确保不超出屏幕宽度 */
+}
+
+body {
+    font-family: "Microsoft YaHei", sans-serif; /* 字体 */
+    font-size: 14px;
+    background: #f9fafb; /* 页面背景色 */
+}
+
+/* ======================================
+整体左右布局：左侧边栏 + 右侧聊天区
+====================================== */
+.app-container {
+    display: flex;  /* 左右并排 */
+    height: 100vh;  /* 占满屏幕高度 */
+    width: 100%;    /* 占满屏幕宽度 */
+    overflow: hidden;   /* 禁止内容溢出 */
+    overflow-x: hidden; /* 明确禁止横向滚动 */
+    max-width: 100vw;  /* 确保不超出视口宽度 */
+}
+
+/* ======================================
+左侧会话侧边栏
+====================================== */
+.sidebar-wrapper {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;     /* 防止侧边栏被压缩 */
+}
+
+.sidebar {
+    width: 240px;
+    height: 100%;
+    background: #fff;
+    border-right: 1px solid #eee;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: width 0.2s ease, padding 0.2s ease; /* 收缩动画 */
+}
+
+/* 侧边栏收起状态 */
+.sidebar.collapsed {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+}
+.sidebar.collapsed .new-chat-btn,
+.sidebar.collapsed .session-list {
+    display: none;
+}
+
+/* 侧边栏展开/收起按钮 */
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: -20px;
+    width: 20px;
+    height: 50px;
+    overflow: hidden;   /* 防止按钮内容溢出 */
+    border: none;
+    background: #f5f5f5;
+    color: #595959;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 0 12px 12px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    transition: all 0.2s ease;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    box-shadow: 3px 0 10px -3px rgba(0,0,0,0.08), 0 4px 10px -3px rgba(0,0,0,0.08);
+    border-top: 1px solid #cecece;
+    border-right: 1px solid #cecece;
+    border-bottom: 1px solid #cecece;
+    display: block;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+    text-align: center;
+}
+.sidebar-toggle-btn:hover {
+    background: #f7f8fa;
+    transform: translateY(-50%) scale(1.03);
+    box-shadow: 4px 0 14px -4px rgba(0,0,0,0.1), 0 5px 12px -4px rgba(0,0,0,0.1);
+}
+
+/* 新建对话按钮 */
+.new-chat-btn {
+    width: 100%;
+    padding: 12px;
+    background: #ff3c6c;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+/* 会话列表 */
+.session-list {
+    flex: 1;               /* 占满剩余高度 */
+    overflow-y: auto;       /* 会话多了可以滚动 */
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* 单个会话项 */
+.session-item {
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.session-item.active {
+    background: #ffe8ed;
+    color: #ff3c6c;
+    font-weight: 500;
+}
+
+.session-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 删除会话按钮 */
+.session-delete-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: #ff3c6c;
+    cursor: pointer;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 0;
+}
+.session-delete-btn:hover {
+    background: rgba(255, 60, 108, 0.16);
+}
+
+/* ======================================
+右侧聊天区域外层
+====================================== */
+.chat-container {
+    flex: 1;                    /* 占满右侧所有宽度 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;        /* 让内部内容居中 */
+    overflow: hidden;           /* 外层容器禁止滚动 */
+    overflow-x: hidden;         /* 明确禁止横向溢出 */
+    padding: 0;
+    min-width: 0;               /* 关键：允许flex子项收缩，防止撑开父容器 */
+    min-height: 500px;          /* 外层容器最小高度，避免整体塌陷 */
+}
+
+
+/* 右侧内容容器：控制整体居中 + 高度占满屏幕 */
+.chat-content {
+    width: 80%;                 /* 占右侧80%宽度 */
+    max-width: 900px;           /* 最大不超过900px，不会太宽 */
+    height: 100%;               /* 改为100%，占满chat-container高度而非vh */
+    display: flex;
+    flex-direction: column;     /* 垂直布局：标题 → 按钮 → 聊天框 → 输入框 */
+    padding: 20px 10px;
+    margin: 0 auto;             /* 关键：让整个内容区水平居中 */
+    overflow: hidden;           /* 禁止自身产生滚动条 */
+    overflow-x: hidden;         /* 明确禁止横向溢出 */
+    box-sizing: border-box;     /* padding包含在高度内 */
+}
+
+/* 小屏响应式适配 */
+@media (max-width: 768px) {
+    .chat-box {
+        min-height: 200px !important; /* 手机端最小高度稍降，但仍可见 */
+    }
+    .chat-container {
+        min-height: 400px; /* 手机端外层容器最小高度适配 */
+    }
+    .chat-content {
+        width: 95%; /* 小屏占更多宽度，减少挤压 */
+    }
+}
+
+/* ======================================
+顶部标题
+====================================== */
+.header {
+    flex-shrink: 0;             /* 标题区不被压缩 */
+    overflow: hidden;           /* 防止文字溢出 */
+    width: 100%;
+}
+.header h1 {
+    text-align: center;
+    color: #ff3c6c;
+    margin: 0 0 10px;
+    font-size: 36px;
+    word-break: break-word;     /* 长文本自动换行 */
+}
+.header p {
+    text-align: center;
+    font-size: 18px;
+    color: #666;
+    margin: 0 0 10px;
+    word-break: break-word;     /* 长文本自动换行 */
+}
+
+/* ======================================
+工具栏按钮：PPT、观察记录等
+====================================== */
+.tool-buttons {
+    display: flex;
+    flex-wrap: wrap;            /* 按钮满行自动换行 */
+    justify-content: center;    /* 按钮整体居中 */
+    gap: 10px;                  /* 按钮之间间距 */
+    padding: 5px 0;
+    margin-bottom: 6px;
+    width: 100%;
+    overflow: hidden;           /* 防止按钮溢出 */
+    max-height: 120px;    /* 最多显示 2~3 行按钮 */
+    overflow-y: auto;     /* 竖向多出就滚动 */
+    overflow-x: hidden;   /* 禁止横向滚 */
+}
+/* 美化滚动条 */
+.tool-buttons::-webkit-scrollbar {
+  width: 5px;
+}
+.tool-buttons::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 5px;
+}
+.tool-buttons::-webkit-scrollbar-thumb:hover {
+  background: #ff3c6c;
+}
+
+/* 单个按钮样式 */
+.tool-btn,
+.identity-btn {
+    padding: 10px 16px;
+    border: 1px solid #ffd1e0;
+    background: #fff;
+    border-radius: 25px;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;        /* 文字不换行 */
+    flex-shrink: 0;             /* 改为0：不允许单独收缩，必须排满一行才换行 */
+}
+
+/* 身份选择下拉框 */
+.identity-box {
+    display: flex;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 12px;
+    flex-shrink: 0;             /* 身份选择区不被压缩 */
+    width: 100%;
+}
+.identity-dropdown {
+    position: absolute;
+    top: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+    display: none;
+    min-width: 150px;
+    z-index: 10;
+}
+.identity-dropdown.visible {
+    display: block;
+}
+.identity-dropdown button {
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+}
+.identity-dropdown button:hover {
+    background: #ffeef2;
+    color: #ff3c6c;
+}
+
+.tool-btn:hover,
+.identity-btn:hover {
+    background: #ffeef2;
+    color: #ff3c6c;
+}
+
+.tool-note {
+    width: 100%;
+    text-align: center;
+    color: #909090;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 2px 0 6px;
+    flex-shrink: 0;             /* 提示文字不被压缩 */
+}
+
+/* ======================================
+聊天消息框：🔥 唯一可以滚动的区域
+====================================== */
+.chat-box {
+    flex: 1;                    /* 关键：占满所有剩余高度 */
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    overflow-y: auto;           /* 关键：只有这里可以上下滚动 */
+    overflow-x: hidden;         /* 禁止聊天框横向滚动 */
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    min-height: 0;              /* 关键：允许flex子项正确收缩 */
+    min-height: 250px !important; /* 强制保留最小高度，小屏不消失 */
+}
+
+/* 消息气泡通用样式 */
+.msg {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 15px;
+    max-width: 80%;
+    line-height: 1.5;
+    width: fit-content;
+    word-break: break-word;     /* 长消息自动换行 */
+}
+
+/* 用户消息：粉色、靠右 */
+.msg.user {
+    background: #ff3c6c;
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+}
+
+/* AI消息：灰色、靠左 */
+.msg.bot {
+    background: #f1f3f4;
+    color: #333;
+    margin-right: auto;
+    border-bottom-left-radius: 4px;
+    line-height: 1.7;
+}
+
+/* ======================================
+风格标签按钮
+====================================== */
+.tag-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+    justify-content: center;
+    flex-shrink: 0;             /* 标签按钮区不被压缩 */
+}
+.tag-btn {
+    padding: 6px 10px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 15px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.tag-btn:hover {
+    background: #ff3c6c;
+    color: white;
+    border-color: #ff3c6c;
+}
+
+/* ======================================
+底部输入框区域：固定在底部，不滚动
+====================================== */
+.input-area {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    flex-shrink: 0;     /* 关键：不被挤压、不移动，永远固定在底部 */
+    overflow: hidden;   /* 防止输入区溢出 */
+}
+
+/* 输入框 */
+.input-area input {
+    min-width: 0;
+    flex: 1;
+    padding: 14px;
+    border: 1px solid #ddd;
+    border-radius: 25px;
+    font-size: 15px;
+    outline: none;
+    border-color: #ff3c6c;
+}
+.input-area input:focus {
+    border-color: #ff3c6c;
+    box-shadow: 0 0 0 3px rgba(255,60,108,0.2);
+}
+
+/* 发送按钮 */
+.input-area button {
+    padding: 14px 20px;
+    background: #ff3c6c;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+/* ======================================
+AI思考中流光动画
+====================================== */
+@keyframes sweepLight {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+.msg.bot.loading {
+    background: linear-gradient(90deg, #999 30%, #333 50%, #999 70%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: sweepLight 1.5s infinite linear;
+}
